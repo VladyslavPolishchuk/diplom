@@ -35,6 +35,7 @@ namespace k_means2
                 cb1.Items.Add(i);
                 cb2.Items.Add(i);
             }
+            axisX = 0; axisY = 1;
             cb1.SelectedIndex = axisX; cb2.SelectedIndex = axisY;
             DisplayAll();
             isSolved = false;
