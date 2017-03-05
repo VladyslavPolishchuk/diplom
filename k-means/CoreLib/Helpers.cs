@@ -11,7 +11,8 @@ namespace CoreLib
         public Helper()
         {
             k = 2;
-            _isMakKinAlg = false;
+            Modification = Modification.Lloid;
+            UseMahalanobisDistance = true;
             Clusters = new List<Cluster>();
             AllPoints = new List<Point>();
         }
@@ -19,8 +20,8 @@ namespace CoreLib
         public List<Cluster> Clusters { get; set; }
         public List<Point> AllPoints { get; set; }
         public int Dimension { get { return AllPoints.FirstOrDefault().Characters.Count; } }
-        private bool _isMakKinAlg;
-        public bool IsMakKinAlg { get; set; }
+        public Modification Modification { get; set; }
+        public bool UseMahalanobisDistance { get; set; }
         private bool _stopFlag 
         {
             get
@@ -37,6 +38,7 @@ namespace CoreLib
                 return false;
             }
         }
+        private double[][] _covMatrix;
         public double OperationTime { get; private set; }
         /* todo
         public bool tmp()
@@ -72,10 +74,32 @@ namespace CoreLib
                 Clusters[i].RefreshCenter();
             }
         }
-        #endregion
-        public bool LoadDataFromFile()
+        private void SetCovMatrix()
         {
-            return DataLoader.LoadData(AllPoints);
+            _covMatrix = new double[AllPoints.Count][];
+            for (int i = 0; i < Dimension; i++)
+            {
+                _covMatrix[i] = new double[AllPoints.Count];
+                for (int j = 0; j < Dimension; j++)
+                {
+                    double val = -1;
+                    for (int k = 0; k < AllPoints.Count; k++)
+                    {
+                        var avI = AllPoints.Average(el => el.Characters[i]);
+                        var avJ = AllPoints.Average(el => el.Characters[j]);
+                        val += (AllPoints[k].Characters[i] - avI)*(AllPoints[k].Characters[j] - avJ);
+                    }
+                    _covMatrix[i][j] = (double)val / (AllPoints.Count - 1);
+                }
+            }
+        }
+        #endregion
+        public string LoadDataFromFile()
+        {
+            var res =  DataLoader.LoadData(AllPoints);
+            if(!string.IsNullOrEmpty(res))
+                SetCovMatrix();
+            return res;
         }
         public void SetCentersFirstTime()
         {
@@ -102,7 +126,7 @@ namespace CoreLib
             double quality = 0;
             foreach (var cluster in Clusters)
             {
-                quality += cluster.Elements.Sum(elem => Metric.Evklid(cluster.Center, elem));
+                quality += cluster.Elements.Sum(elem => Distance.Evklid(cluster.Center, elem));
             }
             return quality;
         }
@@ -119,7 +143,8 @@ namespace CoreLib
                 int clusterIndex = -1;
                 for (int i = 0; i < k; i++)
                 {
-                    double val = Metric.Evklid(point, Clusters[i].Center);
+                    double val = UseMahalanobisDistance ?
+                        Distance.Mahalanobis(point, Clusters[i].Center, _covMatrix) : Distance.Evklid(point, Clusters[i].Center);
                     if (val < min)
                     {
                         min = val;
@@ -127,7 +152,7 @@ namespace CoreLib
                     }
                 }
                 Clusters[clusterIndex].Elements.Add(point);
-                if (_isMakKinAlg)
+                if (Modification == Modification.Makkin)
                     Clusters[clusterIndex].RefreshCenter();
             }
         }
@@ -137,7 +162,7 @@ namespace CoreLib
 
             var count = 0;
             SetCentersFirstTime();
-            while (count < 10)
+            while (count < 100)
             //do
             {
                 SetCenters();

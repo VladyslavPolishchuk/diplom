@@ -27,8 +27,9 @@ namespace k_means2
         {
             try
             {
-                if (!helper.LoadDataFromFile()) return;
-
+                var fileName = helper.LoadDataFromFile();
+                if (string.IsNullOrEmpty(fileName)) return;
+                filename.Text = fileName;
                 dimension.Text = helper.Dimension.ToString();
 
                 cb1.Items.Clear(); cb2.Items.Clear();
@@ -52,6 +53,14 @@ namespace k_means2
         {
             try
             {
+                // chouse modification
+                if (makkin.Checked) helper.Modification = Modification.Makkin;
+                else if (harting_vang.Checked) helper.Modification = Modification.Harting_Vong;
+                else helper.Modification = Modification.Lloid;
+
+                // chose metric
+                helper.UseMahalanobisDistance = mahalanobis.Checked;
+
                 quality.Text = helper.Solve().ToString("0.0");
                 DisplayClusters();
                 isSolved = true;
@@ -95,6 +104,9 @@ namespace k_means2
                     {
                         chart1.Series[i].Points.AddXY(helper.Clusters[i].Elements[j].Characters[axisX], helper.Clusters[i].Elements[j].Characters[axisY]);
                     }
+                    // add center point with bigger size
+                    chart1.Series[i].Points.AddXY(helper.Clusters[i].Center.Characters[axisX], helper.Clusters[i].Center.Characters[axisY]);
+                    chart1.Series[i].Points[chart1.Series[i].Points.Count - 1].MarkerSize = 10;
                 }
             }
             catch (Exception ex)
@@ -119,6 +131,21 @@ namespace k_means2
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void k_TextChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                if (k.Text == string.Empty) return;
+                helper.k = Convert.ToInt16(k.Text);
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                k.Text = 2.ToString();
+                helper.k = 2;
             }
         }
     }
