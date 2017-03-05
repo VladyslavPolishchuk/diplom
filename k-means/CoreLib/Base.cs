@@ -24,6 +24,14 @@ namespace CoreLib
             }
             return Math.Sqrt(res);
         }
+        public static double Machalannobis(Point x, Point y)
+        {
+            if (x.Characters.Count != y.Characters.Count)
+                throw new InvalidOperationException("Length of x array is not equel to length of y array");
+            double res = 0;
+
+            return res;
+        }
     }
 
     internal static class DataLoader
