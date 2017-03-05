@@ -53,6 +53,26 @@ namespace CoreLib
             return false;
         }
         */
+        #region Private logic
+        private void SetRandomCenters()
+        {
+            Random r = new Random();
+            var indexes = new List<int>();
+            for (int i = 0; i < k; i++)
+            {
+                Clusters.Add(new Cluster());
+                int index = -1;
+                do
+                {
+                    index = r.Next(0, AllPoints.Count);
+                }
+                while(indexes.Contains(index));
+                indexes.Add(index);
+                Clusters[i].Elements.Add(AllPoints[index]);
+                Clusters[i].RefreshCenter();
+            }
+        }
+        #endregion
         public bool LoadDataFromFile()
         {
             return DataLoader.LoadData(AllPoints);
@@ -67,13 +87,9 @@ namespace CoreLib
             //}
             if (AllPoints.Count < k)
                 throw new InvalidOperationException("Points count is less then clusters");
-            for (int i = 0; i < k; i++)
-            {
-                Clusters.Add(new Cluster());
-                Clusters[i].Elements.Add(AllPoints[i]);
-                Clusters[i].RefreshCenter();
-            }
+            SetRandomCenters();
         }
+
         public void SetCenters()
         {
             foreach (var cluster in Clusters)
