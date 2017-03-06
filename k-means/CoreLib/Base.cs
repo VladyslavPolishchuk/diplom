@@ -71,7 +71,7 @@ namespace CoreLib
             var reader = new StreamReader(dialog.FileName);
             while (!reader.EndOfStream)
             {
-                var str = reader.ReadLine().Split(new char[]{' ', ',', ';'});
+                var str = reader.ReadLine().Split(new char[]{' ', ';'});
                 var point = new Point();
                 foreach (var elem in str)
                 {
@@ -89,8 +89,12 @@ namespace CoreLib
         public Point()
         {
             Characters = new List<double>();
+            Distance = double.PositiveInfinity;
         }
         public List<double> Characters { get; set; }
+        internal double Distance { get; set; }
+        internal Cluster ClosestCluster { get; set; }
+        internal Cluster SecodClosestCluster { get; set; }
     }
 
     public class Cluster
@@ -99,15 +103,19 @@ namespace CoreLib
         public Point Center { get; set; }
         public Point PrevCenter { get; set; }
         public int ElementCount { get { return Elements.Count; } }
-        public int Dimention { get { return Elements.First().Characters.Count; } }
+        public int Dimention { get { return Elements.Count == 0 ? 0 : Elements.First().Characters.Count; } }
+        internal bool BelongsToLiveSet { get; set; }
         public Cluster()
         {
             Elements = new List<Point>();
             Center = new Point();
+            BelongsToLiveSet = true;
         }
 
         public void RefreshCenter()
         {
+            if (Dimention == 0) return;
+
             /* Mid
             Point res = new Point();
             for (int i = 0; i < Dimention; i++)
@@ -128,7 +136,7 @@ namespace CoreLib
             {
                 Elements.Sort((el1, el2) =>
                 {
-                    return el1.Characters[i] > el2.Characters[i] ? 1 : -1;
+                    return el1.Characters[i] >= el2.Characters[i] ? 1 : -1;
                 });
                 res.Characters.Add(Elements[(int)ElementCount / 2].Characters[i]);
             }

@@ -61,10 +61,14 @@ namespace k_means2
                 // chose metric
                 helper.UseMahalanobisDistance = mahalanobis.Checked;
 
+                // chose center selection type
+                helper.IsRandomCentres = random.Checked;
+
                 quality.Text = helper.Solve().ToString("0.0");
                 DisplayClusters();
                 isSolved = true;
                 operationTime.Text = helper.OperationTime.ToString();
+                iterations.Text = helper.IterationCount.ToString(); ;
             }
             catch (Exception ex)
             {
