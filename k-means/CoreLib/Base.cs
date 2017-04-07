@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
-using Microsoft.Win32;
 using System.Windows.Forms;
 using System.IO;
-using System.Collections;
 
 namespace CoreLib
 {
@@ -17,9 +13,18 @@ namespace CoreLib
         Lloid,
         Harting_Vong
     }
+    public enum CenterMode
+    {
+        Random,
+        K_means_plus,
+        Refinement,
+        Sampling,
+        Deletion,
+        Combined
+    }
     internal static class Distance
     {
-        public static double Evklid(Point x, Point y)
+        public static async Task<double> Evklid(Point x, Point y)
         {
             if (x.Characters.Count != y.Characters.Count)
                 throw new InvalidOperationException("Length of x array is not equel to length of y array");
@@ -30,7 +35,7 @@ namespace CoreLib
             }
             return Math.Sqrt(res);
         }
-        public static double Mahalanobis(Point x, Point y, double[][] _covMatrixInv)
+        public static async Task<double> Mahalanobis(Point x, Point y, double[][] _covMatrixInv)
         {
             if (x.Characters.Count != y.Characters.Count)
                 throw new InvalidOperationException("Length of x array is not equel to length of y array");
@@ -60,10 +65,9 @@ namespace CoreLib
             return Math.Sqrt(d);
         }
     }
-
     internal static class DataLoader
     {
-        public static string LoadData(List<Point> points)
+        public static async Task<string> LoadData(List<Point> points, Action<Point> callback)
         {
             var dialog = new OpenFileDialog();
             if (dialog.ShowDialog() != DialogResult.OK) return null;
@@ -71,7 +75,7 @@ namespace CoreLib
             var reader = new StreamReader(dialog.FileName);
             while (!reader.EndOfStream)
             {
-                var str = reader.ReadLine().Split(new char[]{' ', ';'});
+                var str = (await reader.ReadLineAsync()).Split(new char[]{' ', ';'});
                 var point = new Point();
                 foreach (var elem in str)
                 {
@@ -79,6 +83,7 @@ namespace CoreLib
                     point.Characters.Add(Convert.ToDouble(elem));
                 }
                 points.Add(point);
+                callback(point);
             }
             return dialog.SafeFileName;
         }
@@ -96,7 +101,6 @@ namespace CoreLib
         internal Cluster ClosestCluster { get; set; }
         internal Cluster SecodClosestCluster { get; set; }
     }
-
     public class Cluster
     {
         public List<Point> Elements { get; set; }
@@ -112,25 +116,9 @@ namespace CoreLib
             BelongsToLiveSet = true;
         }
 
-        public void RefreshCenter()
+        public async Task RefreshCenter()
         {
             if (Dimention == 0) return;
-
-            /* Mid
-            Point res = new Point();
-            for (int i = 0; i < Dimention; i++)
-            {
-                double ch = 0;
-                for (int j = 0; j < ElementCount; j++)
-                {
-                    ch += Elements[j].Characters[i];
-                }
-                res.Characters.Add((double)ch / ElementCount);
-            }
-            PrevCenter = Center;
-            Center = res;*/
-
-            // Me
             Point res = new Point();
             for (int i = 0; i < Dimention; i++)
             {
@@ -140,9 +128,26 @@ namespace CoreLib
                 });
                 res.Characters.Add(Elements[(int)ElementCount / 2].Characters[i]);
             }
+
+            //var tasks = new List<Task<double>>();
+            //for (int i = 0; i < Dimention; i++)
+            //{
+            //    tasks.Add(Task.Run(() =>
+            //    {
+            //        Elements.Sort((el1, el2) =>
+            //        {
+            //            return el1.Characters[i] >= el2.Characters[i] ? 1 : -1;
+            //        });
+            //        return Elements[(int)ElementCount / 2].Characters[i];
+            //    }));
+            //}
+            //await Task.WhenAll(tasks);
+            //for (int i = 0; i < Dimention; i++)
+            //{
+            //    res.Characters.Add(tasks[i].Result);
+            //}
             PrevCenter = Center;
             Center = res;
         }
     }
-
 }

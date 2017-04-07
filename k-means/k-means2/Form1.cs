@@ -1,12 +1,5 @@
 ﻿using CoreLib;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace k_means2
@@ -21,27 +14,43 @@ namespace k_means2
         public Form1()
         {
             InitializeComponent();
+            chart1.Series.Add("all");
+            chart1.Series[0].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Point;
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
             try
             {
-                var fileName = helper.LoadDataFromFile();
-                if (string.IsNullOrEmpty(fileName)) return;
-                filename.Text = fileName;
-                dimension.Text = helper.Dimension.ToString();
-
-                cb1.Items.Clear(); cb2.Items.Clear();
-                for (int i = 0; i < helper.Dimension; i++)
+                chart1.Series.Clear();
+                chart1.Series.Add("all");
+                chart1.Series[0].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Point;
+                helper.LoadDataFromFile(new Action<CoreLib.Point>(point =>
+                    {
+                        this.Invoke( new Action<CoreLib.Point>( p => {
+                            chart1.Series[0].Points.AddXY(p.Characters[axisX], p.Characters[axisY]);
+                        }),point);
+                    })).ContinueWith<string>( task =>
                 {
-                    cb1.Items.Add(i);
-                    cb2.Items.Add(i);
-                }
-                axisX = 0; axisY = 1;
-                cb1.SelectedIndex = axisX; cb2.SelectedIndex = axisY;
-                DisplayAll();
-                isSolved = false;
+                    this.Invoke( new Action(() =>
+                    {
+                        var fileName = task.Result;
+                        if (string.IsNullOrEmpty(fileName)) return;
+                        filename.Text = fileName;
+                        dimension.Text = helper.Dimension.ToString();
+
+                        isSolved = false;
+                        cb1.Items.Clear(); cb2.Items.Clear();
+                        for (int i = 0; i < helper.Dimension; i++)
+                        {
+                            cb1.Items.Add(i);
+                            cb2.Items.Add(i);
+                        }
+                        axisX = 0; axisY = 1;
+                        cb1.SelectedIndex = axisX; cb2.SelectedIndex = axisY;
+                    }));
+                    return "";
+                });
             }
             catch (Exception ex)
             {
@@ -62,13 +71,29 @@ namespace k_means2
                 helper.UseMahalanobisDistance = mahalanobis.Checked;
 
                 // chose center selection type
-                helper.IsRandomCentres = random.Checked;
+                if (random.Checked) helper.CenterMode = CenterMode.Random;
+                else if (k_means_plus.Checked) helper.CenterMode = CenterMode.K_means_plus;
+                else if (refinement.Checked) helper.CenterMode = CenterMode.Refinement;
+                else if (sampling.Checked) helper.CenterMode = CenterMode.Sampling;
+                else if (deletion.Checked) helper.CenterMode = CenterMode.Deletion;
+                else helper.CenterMode = CenterMode.Combined;
 
-                quality.Text = helper.Solve().ToString("0.0");
-                DisplayClusters();
-                isSolved = true;
-                operationTime.Text = helper.OperationTime.ToString();
-                iterations.Text = helper.IterationCount.ToString(); ;
+                chart1.Series.Clear();
+                for (int i = 0; i < helper.k; i++)
+                {
+                    chart1.Series.Add(i.ToString());
+                    chart1.Series[i].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Point;
+                }
+                helper.Solve(null).ContinueWith(res => {
+                    this.Invoke(new Action(() => 
+                    { 
+                        quality.Text = res.Result.ToString("0.000");
+                        DisplayClusters();
+                        isSolved = true;
+                        operationTime.Text = helper.OperationTime.ToString();
+                        iterations.Text = helper.IterationCount.ToString();
+                    }));
+                });
             }
             catch (Exception ex)
             {
@@ -81,7 +106,6 @@ namespace k_means2
             try
             {
                 chart1.Series.Clear();
-
                 chart1.Series.Add("all");
                 chart1.Series[0].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Point;
                 foreach (var p in helper.AllPoints)
@@ -99,6 +123,7 @@ namespace k_means2
         {
             try
             {
+                // print points to chart
                 chart1.Series.Clear();
                 for (int i = 0; i < helper.k; i++)
                 {
@@ -111,6 +136,43 @@ namespace k_means2
                     // add center point with bigger size
                     chart1.Series[i].Points.AddXY(helper.Clusters[i].Center.Characters[axisX], helper.Clusters[i].Center.Characters[axisY]);
                     chart1.Series[i].Points[chart1.Series[i].Points.Count - 1].MarkerSize = 10;
+                }
+                
+                //print points to grid
+                if(points.ColumnCount > 2)
+                    for (int i = 0; i < helper.Dimension; i++)
+                    {
+                        points.Columns.RemoveAt(2);
+                        centers.Columns.RemoveAt(2);
+                        points.Rows.Clear();
+                        centers.Rows.Clear();
+                    }
+                for (int i = 0; i < helper.Dimension; i++)
+                {
+                    points.Columns.Add(string.Format("x{0}", i + 1), string.Format("char{0}", i + 1));
+                    centers.Columns.Add(string.Format("x{0}", i + 1), string.Format("char{0}", i + 1));
+                }
+                int pointIndex = 0;
+                for (int i = 0; i < helper.Clusters.Count; i++)
+                {
+                    centers.Rows.Add();
+                    centers.Rows[i].Cells[0].Value = (i + 1).ToString();
+                    centers.Rows[i].Cells[1].Value = helper.Clusters[i].ElementCount;
+                    for (int j = 0; j < helper.Dimension; j++)
+                    {
+                        centers.Rows[i].Cells[j + 2].Value = helper.Clusters[i].Center.Characters[j];
+                    }
+                    for (int j = 0; j < helper.Clusters[i].ElementCount; j++)
+                    {
+                        points.Rows.Add();
+                        points.Rows[pointIndex].Cells[0].Value = pointIndex + 1;
+                        points.Rows[pointIndex].Cells[1].Value = i + 1;
+                        for (int k = 0; k < helper.Dimension; k++)
+                        {
+                            points.Rows[pointIndex].Cells[k + 2].Value = helper.Clusters[i].Elements[j].Characters[k];
+                        }
+                        pointIndex++;
+                    }
                 }
             }
             catch (Exception ex)
